@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { loadGoogleMaps } from "../lib/googleMaps";
 import "./styles.css";
 
@@ -10,37 +10,45 @@ export default function SearchBar({ origin, destination, onChange, onSearch, loa
    */
   const originRef = useRef(null);
   const destRef = useRef(null);
+  const [placesDisabled, setPlacesDisabled] = useState(false);
 
   useEffect(() => {
     let originAutocomplete, destAutocomplete;
-    loadGoogleMaps().then((maps) => {
-      if (originRef.current) {
-        originAutocomplete = new maps.places.Autocomplete(originRef.current, {
-          fields: ["formatted_address", "geometry", "name"],
-        });
-        originAutocomplete.addListener("place_changed", () => {
-          const place = originAutocomplete.getPlace();
-          onChange({
-            origin: place.formatted_address || place.name || originRef.current.value,
-            destination,
+    loadGoogleMaps()
+      .then((google) => {
+        if (!google || !google.maps || !google.maps.places) {
+          setPlacesDisabled(true);
+          return;
+        }
+        if (originRef.current) {
+          originAutocomplete = new google.maps.places.Autocomplete(originRef.current, {
+            fields: ["formatted_address", "geometry", "name"],
           });
-        });
-      }
-      if (destRef.current) {
-        destAutocomplete = new maps.places.Autocomplete(destRef.current, {
-          fields: ["formatted_address", "geometry", "name"],
-        });
-        destAutocomplete.addListener("place_changed", () => {
-          const place = destAutocomplete.getPlace();
-          onChange({
-            origin,
-            destination: place.formatted_address || place.name || destRef.current.value,
+          originAutocomplete.addListener("place_changed", () => {
+            const place = originAutocomplete.getPlace();
+            onChange({
+              origin: place.formatted_address || place.name || originRef.current.value,
+              destination,
+            });
           });
-        });
-      }
-    }).catch(() => {
-      // If Google Maps not loaded (no key), silently skip autocomplete
-    });
+        }
+        if (destRef.current) {
+          destAutocomplete = new google.maps.places.Autocomplete(destRef.current, {
+            fields: ["formatted_address", "geometry", "name"],
+          });
+          destAutocomplete.addListener("place_changed", () => {
+            const place = destAutocomplete.getPlace();
+            onChange({
+              origin,
+              destination: place.formatted_address || place.name || destRef.current.value,
+            });
+          });
+        }
+      })
+      .catch(() => {
+        // If Google Maps not loaded (no key / blocked), disable places features quietly
+        setPlacesDisabled(true);
+      });
 
     return () => {
       // Cleanup listeners are internal to Google API; no-op here
@@ -70,6 +78,11 @@ export default function SearchBar({ origin, destination, onChange, onSearch, loa
       <button className="btn" onClick={onSearch} disabled={loading || !origin || !destination}>
         {loading ? "Finding..." : "Go"}
       </button>
+      {placesDisabled ? (
+        <div style={{ fontSize: 12, opacity: 0.7, marginLeft: 8 }}>
+          Autocomplete unavailable. Ensure Places library is enabled for your key.
+        </div>
+      ) : null}
     </div>
   );
 }
