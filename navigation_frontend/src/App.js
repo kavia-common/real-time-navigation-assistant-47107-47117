@@ -1,47 +1,76 @@
-import React, { useState, useEffect } from 'react';
-import logo from './logo.svg';
-import './App.css';
+import React, { useEffect, useMemo, useState } from "react";
+import "./App.css";
+import "./components/styles.css";
+import { applyTheme, OceanTheme } from "./theme";
+import NavBar from "./components/NavBar";
+import SearchBar from "./components/SearchBar";
+import MapView from "./components/MapView";
+import RouteDetails from "./components/RouteDetails";
+import { apiGet, apiPost } from "./api/client";
 
 // PUBLIC_INTERFACE
 function App() {
-  const [theme, setTheme] = useState('light');
+  /** Main app layout: top nav, sidebar, search bar, and map. */
+  const [user, setUser] = useState(null);
+  const [originDest, setOriginDest] = useState({ origin: "", destination: "" });
+  const [result, setResult] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState("");
 
-  // Effect to apply theme to document element
   useEffect(() => {
-    document.documentElement.setAttribute('data-theme', theme);
-  }, [theme]);
+    applyTheme(OceanTheme);
+  }, []);
 
-  // PUBLIC_INTERFACE
-  const toggleTheme = () => {
-    setTheme(prevTheme => prevTheme === 'light' ? 'dark' : 'light');
+  useEffect(() => {
+    let isMounted = true;
+    apiGet("/api/user").then((res) => {
+      if (!isMounted) return;
+      if (res.ok) setUser(res.data);
+    });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const center = useMemo(() => {
+    // Simple default center; could be geolocation in future.
+    return { lat: 37.7749, lng: -122.4194 };
+  }, []);
+
+  const onSearch = async () => {
+    setLoading(true);
+    setErr("");
+    setResult(null);
+    const res = await apiPost("/api/routes", {
+      origin: originDest.origin,
+      destination: originDest.destination,
+    });
+    setLoading(false);
+    if (!res.ok) {
+      setErr(res.error || "Failed to compute route");
+    } else {
+      setResult(res.data);
+    }
   };
 
   return (
-    <div className="App">
-      <header className="App-header">
-        <button 
-          className="theme-toggle" 
-          onClick={toggleTheme}
-          aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
-        >
-          {theme === 'light' ? '🌙 Dark' : '☀️ Light'}
-        </button>
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <p>
-          Current theme: <strong>{theme}</strong>
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
+    <div className="layout">
+      <div className="layout__nav">
+        <NavBar user={user} />
+      </div>
+      <div className="layout__sidebar">
+        <RouteDetails result={result} loading={loading} error={err} />
+      </div>
+      <main className="layout__main">
+        <SearchBar
+          origin={originDest.origin}
+          destination={originDest.destination}
+          onChange={setOriginDest}
+          onSearch={onSearch}
+          loading={loading}
+        />
+        <MapView center={center} polyline={result?.polyline} />
+      </main>
     </div>
   );
 }
