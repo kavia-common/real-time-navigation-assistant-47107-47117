@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { loadGoogleMaps } from "../lib/googleMaps";
+import { loadGoogleMaps, getGoogleMapsApiKey } from "../lib/googleMaps";
 import "./styles.css";
 
 // PUBLIC_INTERFACE
@@ -12,34 +12,43 @@ export default function MapView({ center, polyline }) {
   const [mapsReady, setMapsReady] = useState(false);
   const [map, setMap] = useState(null);
   const [error, setError] = useState("");
+  const [debugKey, setDebugKey] = useState("");
+
+  const defaultCenter = center || { lat: 37.7749, lng: -122.4194 };
+  const defaultZoom = 12;
+
+  useEffect(() => {
+    setDebugKey(getGoogleMapsApiKey() ? "(key present)" : "(no key detected at build)");
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
     loadGoogleMaps()
       .then((google) => {
-        if (!isMounted || !ref.current) return;
+        if (!isMounted || !ref.current || !google?.maps) return;
         const m = new google.maps.Map(ref.current, {
-          center: center || { lat: 37.7749, lng: -122.4194 },
-          zoom: 12,
+          center: defaultCenter,
+          zoom: defaultZoom,
           disableDefaultUI: false,
         });
-        if (center) {
-          new google.maps.Marker({ position: center, map: m, title: "Center" });
+        if (defaultCenter) {
+          new google.maps.Marker({ position: defaultCenter, map: m, title: "Center" });
         }
         setMap(m);
         setMapsReady(true);
       })
       .catch((e) => {
         console.error("[MapView] Failed to initialize map:", e);
-        setError(
-          "Map failed to load. Check API key, referrer restrictions, and whether Maps JavaScript API is enabled."
-        );
+        const message =
+          (e && (e.message || e.toString())) ||
+          "Map failed to load. Check API key, referrer restrictions, and whether Maps JavaScript API is enabled.";
+        setError(message);
         setMapsReady(false);
       });
     return () => {
       isMounted = false;
     };
-  }, [center]);
+  }, [defaultCenter]);
 
   useEffect(() => {
     if (!map || !mapsReady) return;
@@ -48,15 +57,21 @@ export default function MapView({ center, polyline }) {
 
   if (!mapsReady) {
     return (
-      <div className="map--placeholder" style={{ minHeight: 420 }}>
+      <div className="map--placeholder" style={{ minHeight: 480 }}>
         <div className="map--placeholder-inner">
           <span role="img" aria-label="map">🗺️</span>
-          <p>Map will appear here. Ensure REACT_APP_GOOGLE_MAPS_API_KEY is set.</p>
+          <p>
+            Map will appear here. Ensure REACT_APP_GOOGLE_MAPS_API_KEY is set {debugKey}.
+          </p>
+          <p style={{ fontSize: 12, opacity: 0.8 }}>
+            If your key has HTTP referrer restrictions, add this preview host and port (e.g. http://localhost:3000 or the CI preview URL).
+          </p>
           {error ? <p style={{ color: "#991b1b" }}>{error}</p> : null}
         </div>
       </div>
     );
   }
 
-  return <div ref={ref} className="map" style={{ minHeight: 420 }} />;
+  // Ensure height is explicit so the map is visible regardless of parent flex behavior
+  return <div ref={ref} className="map" style={{ minHeight: 480, height: 480 }} />;
 }

@@ -1,6 +1,6 @@
 :root { background: var(--ocn-bg, #f9fafb); }
 * { box-sizing: border-box; }
-html, body, #root { height: 100%; }
+html, body, #root { height: 100%; min-height: 100%; }
 body {
   margin: 0;
   color: var(--ocn-text, #111827);

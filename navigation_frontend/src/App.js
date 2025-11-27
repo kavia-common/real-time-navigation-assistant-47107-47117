@@ -69,6 +69,7 @@ function App() {
           onSearch={onSearch}
           loading={loading}
         />
+        {/* Diagnostic hint: if env wasn't picked up, MapView placeholder will show "(no key detected at build)". */}
         <MapView center={center} polyline={result?.polyline} />
       </main>
     </div>

@@ -13,9 +13,11 @@ export default function SearchBar({ origin, destination, onChange, onSearch, loa
   const [placesDisabled, setPlacesDisabled] = useState(false);
 
   useEffect(() => {
+    let cancelled = false;
     let originAutocomplete, destAutocomplete;
     loadGoogleMaps()
       .then((google) => {
+        if (cancelled) return;
         if (!google || !google.maps || !google.maps.places) {
           setPlacesDisabled(true);
           return;
@@ -47,11 +49,12 @@ export default function SearchBar({ origin, destination, onChange, onSearch, loa
       })
       .catch(() => {
         // If Google Maps not loaded (no key / blocked), disable places features quietly
-        setPlacesDisabled(true);
+        if (!cancelled) setPlacesDisabled(true);
       });
 
     return () => {
-      // Cleanup listeners are internal to Google API; no-op here
+      cancelled = true;
+      // Google handles listeners internally; no manual cleanup necessary here.
     };
   }, [origin, destination, onChange]);
 
@@ -80,7 +83,7 @@ export default function SearchBar({ origin, destination, onChange, onSearch, loa
       </button>
       {placesDisabled ? (
         <div style={{ fontSize: 12, opacity: 0.7, marginLeft: 8 }}>
-          Autocomplete unavailable. Ensure Places library is enabled for your key.
+          Autocomplete unavailable. Ensure the Places API is enabled and that your key allows this referrer.
         </div>
       ) : null}
     </div>
